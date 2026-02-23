@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dart_geohash/dart_geohash.dart';
 
 import '../models/rider_profile.dart';
 
@@ -31,8 +32,10 @@ class RiderRepository {
 
   Future<void> updateRiderLocation(
       String riderId, double latitude, double longitude) {
+    final geohash = GeoHasher().encode(longitude, latitude, precision: 9);
     return _firestore.collection('rider_locations').doc(riderId).set({
       'location': GeoPoint(latitude, longitude),
+      'geohash': geohash,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

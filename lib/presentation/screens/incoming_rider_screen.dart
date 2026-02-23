@@ -48,7 +48,10 @@ class _IncomingRideView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Incoming Ride")),
+      appBar: AppBar(
+        title: const Text("Incoming Ride"),
+        automaticallyImplyLeading: false,
+      ),
       body: BlocConsumer<IncomingRideCubit, IncomingRideState>(
         listener: (context, state) {
           if (state is IncomingRideNotFound) {

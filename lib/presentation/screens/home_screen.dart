@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:zuburb_rider/presentation/screens/incoming_rider_screen.dart';
+import 'package:zuburb_rider/presentation/screens/ride_navigation_screen.dart';
 
 import '../../bloc/background_location/background_location_cubit.dart';
 import '../../bloc/background_location/background_location_state.dart';
@@ -199,6 +200,24 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
                 ),
               );
             }
+
+            if (state is RiderHomeActiveRide) {
+              if (_lastPushedRideId == state.rideId) return;
+              _lastPushedRideId = state.rideId;
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RideNavigationScreen(
+                    rideId: state.rideId,
+                    pickupLat: state.pickupLat,
+                    pickupLng: state.pickupLng,
+                    dropLat: state.dropLat,
+                    dropLng: state.dropLng,
+                  ),
+                ),
+              );
+            }
           },
           builder: (context, state) {
             return switch (state) {
@@ -221,6 +240,19 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
                     children: [
                       const Text(
                         "Incoming ride...",
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ],
+                  ),
+                ),
+              RiderHomeActiveRide() => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "Resuming active ride...",
                         style: TextStyle(fontSize: 18),
                       ),
                     ],

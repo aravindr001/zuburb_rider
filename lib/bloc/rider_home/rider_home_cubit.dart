@@ -31,10 +31,30 @@ class RiderHomeCubit extends Cubit<RiderHomeState> {
           _rideSub?.cancel();
           _rideSub = _rideRepository.watchRide(rideId).listen(
             (ride) {
-              if (ride != null && ride.status == 'requested') {
-                emit(RiderHomeIncomingRide(rideId));
-              } else {
+              if (ride == null) {
                 emit(const RiderHomeWaiting());
+                return;
+              }
+
+              switch (ride.status) {
+                case 'requested':
+                  emit(RiderHomeIncomingRide(rideId));
+                  break;
+                case 'accepted':
+                case 'arrived_pickup':
+                case 'picked_up':
+                  // Active ride — restore to navigation screen.
+                  emit(RiderHomeActiveRide(
+                    rideId: rideId,
+                    pickupLat: ride.pickup.latitude,
+                    pickupLng: ride.pickup.longitude,
+                    dropLat: ride.drop.latitude,
+                    dropLng: ride.drop.longitude,
+                  ));
+                  break;
+                default:
+                  // completed, cancelled, rejected, etc.
+                  emit(const RiderHomeWaiting());
               }
             },
             onError: (e, _) => emit(RiderHomeError(e.toString())),

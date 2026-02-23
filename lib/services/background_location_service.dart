@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dart_geohash/dart_geohash.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -164,10 +165,11 @@ Future<void> _updateLocation(
       ),
     );
 
+    final geohash = GeoHasher().encode(position.longitude, position.latitude, precision: 9);
+
     await firestore.collection('rider_locations').doc(riderId).set({
-      'lat':position.latitude,
-      'lng':position.latitude,
       'location': GeoPoint(position.latitude, position.longitude),
+      'geohash': geohash,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 

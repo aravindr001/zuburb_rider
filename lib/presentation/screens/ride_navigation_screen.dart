@@ -159,9 +159,12 @@ class _RideNavigationViewState extends State<_RideNavigationView> {
           infoWindow: InfoWindow(title: _toDropoff ? 'Dropoff' : 'Pickup'),
         );
 
-        return Scaffold(
+        return PopScope(
+          canPop: false,
+          child: Scaffold(
           appBar: AppBar(
             title: Text(_toDropoff ? 'Navigate to Dropoff' : 'Navigate to Pickup'),
+            automaticallyImplyLeading: false,
           ),
           body: Stack(
             children: [
@@ -399,6 +402,7 @@ class _RideNavigationViewState extends State<_RideNavigationView> {
               ),
             ],
           ),
+        ),
         );
       },
     );
