@@ -96,7 +96,9 @@ void _onStart(ServiceInstance service) async {
   String? riderId;
   Timer? locationTimer;
   StreamSubscription<DocumentSnapshot>? riderSub;
+  StreamSubscription<DocumentSnapshot>? rideSub;
   FirebaseFirestore? firestore;
+  String? lastNotifiedRideId;
 
   // Register the listener FIRST so we never miss the event from the UI.
   service.on('setRiderId').listen((event) async {
@@ -115,14 +117,28 @@ void _onStart(ServiceInstance service) async {
     // Cancel any previous Firestore listener.
     riderSub?.cancel();
 
-    // Listen to the rider's isOnline field in real-time.
+    // Listen to the rider's document in real-time.
     riderSub = firestore!
         .collection('riders')
         .doc(riderId)
         .snapshots()
         .listen((snapshot) {
-      final isOnline = snapshot.data()?['isOnline'] as bool? ?? false;
-      debugPrint('[BgLocation] isOnline = $isOnline for rider $riderId');
+      final data = snapshot.data();
+      final isOnline = data?['isOnline'] as bool? ?? false;
+      final currentRideId = data?['currentRideId'] as String?;
+      debugPrint('[BgLocation] isOnline=$isOnline, currentRideId=$currentRideId for rider $riderId');
+
+      // ── Ride notification logic ──
+      if (currentRideId != null && currentRideId != lastNotifiedRideId) {
+        lastNotifiedRideId = currentRideId;
+        _showRideNotification(firestore!, currentRideId);
+      } else if (currentRideId == null) {
+        lastNotifiedRideId = null;
+        rideSub?.cancel();
+        rideSub = null;
+      }
+
+      // ── Location tracking logic ──
 
       locationTimer?.cancel();
       locationTimer = null;
@@ -146,6 +162,7 @@ void _onStart(ServiceInstance service) async {
     debugPrint('[BgLocation] stopService received');
     locationTimer?.cancel();
     riderSub?.cancel();
+    rideSub?.cancel();
     service.stopSelf();
   });
 }
@@ -185,5 +202,56 @@ void _setNotification(ServiceInstance service, String content) {
       title: 'Zuburb Rider',
       content: content,
     );
+  }
+}
+
+/// Show a local notification when a new ride is assigned.
+Future<void> _showRideNotification(
+    FirebaseFirestore firestore, String rideId) async {
+  try {
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    // Ensure the ride-request channel exists in this isolate.
+    await plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'ride_request_channel',
+            'Ride Requests',
+            description: 'Notifications for incoming ride requests',
+            importance: Importance.high,
+          ),
+        );
+
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInit = DarwinInitializationSettings();
+    await plugin.initialize(
+      const InitializationSettings(android: androidInit, iOS: iosInit),
+    );
+
+    await plugin.show(
+      999,
+      'New Ride Request!',
+      'You have a new ride request. Tap to open.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'ride_request_channel',
+          'Ride Requests',
+          channelDescription: 'Notifications for incoming ride requests',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+    );
+    debugPrint('[BgLocation] Ride notification shown for ride $rideId');
+  } catch (e) {
+    debugPrint('[BgLocation] Failed to show ride notification: $e');
   }
 }

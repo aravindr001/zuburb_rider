@@ -10,11 +10,13 @@ import 'package:zuburb_rider/repository/auth_repository.dart';
 import 'package:zuburb_rider/repository/ride_repository.dart';
 import 'package:zuburb_rider/repository/rider_repository.dart';
 import 'package:zuburb_rider/services/background_location_service.dart';
+import 'package:zuburb_rider/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await BackgroundLocationService.instance.initialise();
+  await NotificationService.instance.initialise();
   runApp(const AppBootstrap());
 }
 
