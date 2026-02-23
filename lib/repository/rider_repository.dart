@@ -28,4 +28,12 @@ class RiderRepository {
       'isOnline': isOnline,
     });
   }
+
+  Future<void> updateRiderLocation(
+      String riderId, double latitude, double longitude) {
+    return _firestore.collection('rider_locations').doc(riderId).set({
+      'location': GeoPoint(latitude, longitude),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }

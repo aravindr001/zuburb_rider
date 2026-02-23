@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:zuburb_rider/presentation/screens/incoming_rider_screen.dart';
 
+import '../../bloc/background_location/background_location_cubit.dart';
+import '../../bloc/background_location/background_location_state.dart';
 import '../../bloc/rider_home/rider_home_cubit.dart';
 import '../../bloc/rider_home/rider_home_state.dart';
 import '../../bloc/location_permission/location_permission_cubit.dart';
@@ -62,6 +64,8 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LocationPermissionCubit>().requestWhenInUseIfNeeded();
+      // Start the background location service for this rider.
+      context.read<BackgroundLocationCubit>().start(widget.riderId);
     });
   }
 
@@ -138,7 +142,10 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
             },
           ),
           TextButton(
-            onPressed: () => context.read<AuthSessionCubit>().signOut(),
+            onPressed: () {
+              context.read<BackgroundLocationCubit>().stop();
+              context.read<AuthSessionCubit>().signOut();
+            },
             child: const Text("Logout"),
           ),
         ],
@@ -165,6 +172,15 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
                   const SnackBar(
                     content: Text('Enable location permission in Settings.'),
                   ),
+                );
+              }
+            },
+          ),
+          BlocListener<BackgroundLocationCubit, BackgroundLocationState>(
+            listener: (context, state) {
+              if (state is BackgroundLocationError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(state.message)),
                 );
               }
             },

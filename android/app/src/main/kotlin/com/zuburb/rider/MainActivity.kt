@@ -1,6 +1,11 @@
 package com.zuburb.rider
 
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -24,6 +29,27 @@ class MainActivity : FlutterActivity() {
 					}
 				} else {
 					result.notImplemented()
+				}
+			}
+
+		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "zuburb_rider/battery")
+			.setMethodCallHandler { call, result ->
+				when (call.method) {
+					"isBatteryOptimizationDisabled" -> {
+						val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+						result.success(pm.isIgnoringBatteryOptimizations(packageName))
+					}
+					"requestDisableBatteryOptimization" -> {
+						try {
+							val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+							intent.data = Uri.parse("package:$packageName")
+							startActivity(intent)
+							result.success(true)
+						} catch (e: Exception) {
+							result.success(false)
+						}
+					}
+					else -> result.notImplemented()
 				}
 			}
 	}
