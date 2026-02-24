@@ -1,9 +1,18 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+}
+
+// Read local.properties for MAPS_API_KEY
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.reader(Charsets.UTF_8).use { localProperties.load(it) }
 }
 
 android {
@@ -34,9 +43,10 @@ android {
 
         val mapsApiKey: String? =
             project.findProperty("MAPS_API_KEY") as String?
+                ?: localProperties["MAPS_API_KEY"] as String?
 
         manifestPlaceholders["MAPS_API_KEY"] =
-            mapsApiKey ?: "AIzaSyB6b5C_h8-hUkHhlDVyPuY-5fchrFeefzE"
+            mapsApiKey ?: ""
     }
 
     buildTypes {

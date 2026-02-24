@@ -110,18 +110,37 @@ requested → accepted → arrived_pickup → picked_up → completed
    ```
 
 3. **Firebase configuration**
-   - Place `google-services.json` in `android/app/`
+   - Place `google-services.json` in `android/app/` (this file is gitignored)
    - Place `GoogleService-Info.plist` in `ios/Runner/`
    - Enable **Phone Authentication** in Firebase Console
    - Create the Firestore collections (`riders`, `rider_locations`, `rides`)
 
 4. **Google Maps API key**
-   - Add your API key to `android/app/src/main/AndroidManifest.xml`
-   - Add your API key to `ios/Runner/AppDelegate.swift`
+
+   The API key is **not** stored in the repository. You must provide it at build time.
+
+   **Android** — add to `android/local.properties` (already gitignored):
+   ```properties
+   MAPS_API_KEY=AIzaSy...your_key_here
+   ```
+
+   **iOS** — add to `ios/Flutter/Keys.xcconfig` (already gitignored):
+   ```
+   MAPS_API_KEY=AIzaSy...your_key_here
+   ```
+
+   **Dart code** (optional override via `--dart-define`):
+   ```bash
+   flutter run --dart-define=MAPS_API_KEY=AIzaSy...your_key_here
+   ```
 
 5. **Run**
    ```bash
    flutter run
+   ```
+   Or with the API key inline:
+   ```bash
+   flutter run --dart-define=MAPS_API_KEY=YOUR_KEY
    ```
 
 ## Permissions

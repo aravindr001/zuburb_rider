@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase config (contains API keys that trigger GitHub push protection)
+android/app/google-services.json
+
+# iOS Maps API key config
+ios/Flutter/Keys.xcconfig
