@@ -123,14 +123,9 @@ requested → accepted → arrived_pickup → picked_up → completed
    MAPS_API_KEY=AIzaSy...your_key_here
    ```
 
-   **iOS** — add to `ios/Flutter/Keys.xcconfig` (already gitignored):
-   ```
-   MAPS_API_KEY=AIzaSy...your_key_here
-   ```
-
    **Dart code** (optional override via `--dart-define`):
    ```bash
-   flutter run --dart-define=MAPS_API_KEY=AIzaSy...your_key_here
+   flutter run --dart-define=MAPS_API_KEY=your_key_here
    ```
 
 5. **Run**
