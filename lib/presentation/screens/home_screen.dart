@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:zuburb_rider/presentation/screens/incoming_rider_screen.dart';
 import 'package:zuburb_rider/presentation/screens/ride_navigation_screen.dart';
+import 'package:zuburb_rider/presentation/screens/rider_availability_screen.dart';
+import 'package:zuburb_rider/presentation/screens/scheduled_rides_screen.dart';
 
 import '../../bloc/background_location/background_location_cubit.dart';
 import '../../bloc/background_location/background_location_state.dart';
@@ -11,6 +13,8 @@ import '../../bloc/rider_home/rider_home_state.dart';
 import '../../bloc/location_permission/location_permission_cubit.dart';
 import '../../bloc/location_permission/location_permission_state.dart';
 import '../../bloc/rider_online/rider_online_cubit.dart';
+import '../../bloc/scheduled_rides/scheduled_rides_cubit.dart';
+import '../../bloc/scheduled_rides/scheduled_rides_state.dart';
 import '../../bloc/session/auth_session_cubit.dart';
 import '../../bloc/session/auth_session_state.dart';
 import '../../repository/ride_repository.dart';
@@ -40,6 +44,13 @@ class RiderHomeScreen extends StatelessWidget {
         BlocProvider(
           create: (context) => RiderOnlineCubit(
             context.read<RiderRepository>(),
+            sessionState.user.uid,
+          ),
+        ),
+        BlocProvider(
+          create: (context) => ScheduledRidesCubit(
+            context.read<RiderRepository>(),
+            context.read<RideRepository>(),
             sessionState.user.uid,
           ),
         ),
@@ -74,82 +85,136 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // centerTitle: true,
-        title: const Text("Rider Home"),
-        
-        actions: [
-          BlocBuilder<RiderOnlineCubit, bool>(
-            builder: (context, isOnline) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        isOnline ? 'Online' : 'Offline',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      const SizedBox(width: 6),
-                      Transform.scale(
-                        scale: 0.75,
-                        child: Switch(
-                          value: isOnline,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (value) async {
-                            final riderOnlineCubit =
-                                context.read<RiderOnlineCubit>();
-                            final messenger = ScaffoldMessenger.of(context);
+        title: const Text("GUARD",style: TextStyle(letterSpacing: 6)),
+        centerTitle: true,
+      ),
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // ── Online / Offline toggle ──
+              BlocBuilder<RiderOnlineCubit, bool>(
+                builder: (context, isOnline) {
+                  return SwitchListTile(
+                    secondary: Icon(
+                      Icons.circle,
+                      color: isOnline ? Colors.green : Colors.grey,
+                      size: 14,
+                    ),
+                    title: Text(isOnline ? 'Online' : 'Offline'),
+                    value: isOnline,
+                    onChanged: (value) async {
+                      final riderOnlineCubit =
+                          context.read<RiderOnlineCubit>();
+                      final messenger = ScaffoldMessenger.of(context);
 
-                            if (value) {
-                              final serviceEnabled =
-                                  await Geolocator.isLocationServiceEnabled();
-                              if (!serviceEnabled) {
-                                if (!context.mounted) return;
-                                messenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Please enable location services.'),
-                                  ),
-                                );
-                                return;
-                              }
+                      if (value) {
+                        final serviceEnabled =
+                            await Geolocator.isLocationServiceEnabled();
+                        if (!serviceEnabled) {
+                          if (!context.mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content:
+                                  Text('Please enable location services.'),
+                            ),
+                          );
+                          return;
+                        }
 
-                              var permission = await Geolocator.checkPermission();
-                              if (permission == LocationPermission.denied) {
-                                permission = await Geolocator.requestPermission();
-                              }
+                        var permission =
+                            await Geolocator.checkPermission();
+                        if (permission == LocationPermission.denied) {
+                          permission =
+                              await Geolocator.requestPermission();
+                        }
 
-                              if (permission == LocationPermission.denied ||
-                                  permission == LocationPermission.deniedForever) {
-                                if (!context.mounted) return;
-                                messenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Location permission is required.'),
-                                  ),
-                                );
-                                return;
-                              }
-                            }
+                        if (permission == LocationPermission.denied ||
+                            permission ==
+                                LocationPermission.deniedForever) {
+                          if (!context.mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Location permission is required.'),
+                            ),
+                          );
+                          return;
+                        }
+                      }
 
-                            await riderOnlineCubit.setOnline(value);
-                          },
+                      await riderOnlineCubit.setOnline(value);
+                    },
+                  );
+                },
+              ),
+              const Divider(),
+
+              // ── Scheduled Rides ──
+              BlocBuilder<ScheduledRidesCubit, ScheduledRidesState>(
+                builder: (context, state) {
+                  final count =
+                      state is ScheduledRidesLoaded ? state.count : 0;
+                  return ListTile(
+                    leading: Badge(
+                      isLabelVisible: count > 0,
+                      label: Text('$count'),
+                      child:
+                          const Icon(Icons.event_note),
+                    ),
+                    title: const Text('Scheduled Rides'),
+                    onTap: () {
+                      Navigator.pop(context); // close drawer
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ScheduledRidesScreen(
+                            riderId: widget.riderId,
+                          ),
                         ),
+                      );
+                    },
+                  );
+                },
+              ),
+
+              // ── Availability & Schedule ──
+              ListTile(
+                leading: const Icon(Icons.calendar_month),
+                title: const Text('Availability & Schedule'),
+                onTap: () {
+                  Navigator.pop(context); // close drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RiderAvailabilityScreen(
+                        riderId: widget.riderId,
                       ),
-                    ],
-                  ),
+                    ),
+                  );
+                },
+              ),
+
+              const Spacer(),
+              const Divider(),
+
+              // ── Logout ──
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.red),
                 ),
-              );
-            },
+                onTap: () {
+                  Navigator.pop(context); // close drawer
+                  context.read<BackgroundLocationCubit>().stop();
+                  context.read<AuthSessionCubit>().signOut();
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              context.read<BackgroundLocationCubit>().stop();
-              context.read<AuthSessionCubit>().signOut();
-            },
-            child: const Text("Logout"),
-          ),
-        ],
+        ),
       ),
       body: MultiBlocListener(
         listeners: [
@@ -231,6 +296,8 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
                         "Waiting for ride requests...",
                         style: TextStyle(fontSize: 18),
                       ),
+                      const SizedBox(height: 24),
+                      _ScheduledRidesCard(riderId: widget.riderId),
                     ],
                   ),
                 ),
@@ -270,6 +337,52 @@ class _RiderHomeViewState extends State<_RiderHomeView> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _ScheduledRidesCard extends StatelessWidget {
+  final String riderId;
+  const _ScheduledRidesCard({required this.riderId});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ScheduledRidesCubit, ScheduledRidesState>(
+      builder: (context, state) {
+        final count = state is ScheduledRidesLoaded ? state.count : 0;
+
+        if (count == 0) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Card(
+              child: ListTile(
+                leading: const Icon(Icons.event_note, color: Colors.grey),
+                title: const Text('No scheduled rides'),
+              ),
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Card(
+            child: ListTile(
+              leading: const Icon(Icons.event_note, color: Colors.blue),
+              title: Text('$count scheduled ride${count == 1 ? '' : 's'}'),
+              subtitle: const Text('Tap to view'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ScheduledRidesScreen(riderId: riderId),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

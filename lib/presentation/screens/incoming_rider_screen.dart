@@ -104,6 +104,30 @@ class _IncomingRideView extends StatelessWidget {
                   const Spacer(),
                   if (state.actionInProgress)
                     const Center(child: CircularProgressIndicator())
+                  else if (ride.isScheduled)
+                    // Scheduled ride — no reject, only start.
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await context.read<IncomingRideCubit>().accept();
+                          if (!context.mounted) return;
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RideNavigationScreen(
+                                rideId: ride.id,
+                                pickupLat: ride.pickup.latitude,
+                                pickupLng: ride.pickup.longitude,
+                                dropLat: ride.drop.latitude,
+                                dropLng: ride.drop.longitude,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text("Start Ride"),
+                      ),
+                    )
                   else
                     Row(
                       children: [

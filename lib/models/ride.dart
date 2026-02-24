@@ -8,6 +8,12 @@ class Ride {
   final String? status;
   final String? pickupOtp;
   final bool pickupOtpVerified;
+  final bool isScheduled;
+  final DateTime? scheduledAt;
+  final String? customerId;
+  final String? riderId;
+  final String? pickupAddress;
+  final String? dropAddress;
 
   const Ride({
     required this.id,
@@ -17,6 +23,12 @@ class Ride {
     required this.status,
     required this.pickupOtp,
     required this.pickupOtpVerified,
+    this.isScheduled = false,
+    this.scheduledAt,
+    this.customerId,
+    this.riderId,
+    this.pickupAddress,
+    this.dropAddress,
   });
 
   static Ride? fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
@@ -48,6 +60,11 @@ class Ride {
     final pickupOtpVerified = pickupOtpVerifiedRaw == true ||
         (data['status'] as String?) == 'picked_up';
 
+    final scheduledAtRaw = data['scheduledAt'];
+    final scheduledAt = scheduledAtRaw is Timestamp
+        ? scheduledAtRaw.toDate()
+        : null;
+
     return Ride(
       id: snapshot.id,
       pickup: pickup,
@@ -56,6 +73,12 @@ class Ride {
       status: data['status'] as String?,
       pickupOtp: pickupOtp,
       pickupOtpVerified: pickupOtpVerified,
+      isScheduled: data['isScheduled'] as bool? ?? false,
+      scheduledAt: scheduledAt,
+      customerId: data['customerId'] as String?,
+      riderId: data['riderId'] as String?,
+      pickupAddress: data['pickupAddress'] as String?,
+      dropAddress: data['dropAddress'] as String?,
     );
   }
 }

@@ -16,6 +16,155 @@ class RideRepository {
         .map(Ride.fromSnapshot);
   }
 
+  /// Fetch a list of rides by their IDs.
+  /// Firestore `whereIn` is limited to 30 values, so we chunk accordingly.
+  Future<List<Ride>> fetchRidesByIds(List<String> rideIds) async {
+    if (rideIds.isEmpty) return [];
+
+    final rides = <Ride>[];
+    // Firestore whereIn supports up to 30 items per query.
+    const chunkSize = 30;
+    for (var i = 0; i < rideIds.length; i += chunkSize) {
+      final chunk = rideIds.sublist(
+        i,
+        i + chunkSize > rideIds.length ? rideIds.length : i + chunkSize,
+      );
+      final snap = await _firestore
+          .collection('rides')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in snap.docs) {
+        final ride = Ride.fromSnapshot(doc);
+        if (ride != null) rides.add(ride);
+      }
+    }
+    return rides;
+  }
+
+  /// Watch scheduled rides for a rider in real-time.
+  /// Streams a list of rides whenever any of the ride docs change.
+  Stream<List<Ride>> watchScheduledRides(List<String> rideIds) {
+    if (rideIds.isEmpty) return Stream.value([]);
+
+    // For simplicity, watch all in one query (up to 30).
+    // If more, we fetch and combine.
+    if (rideIds.length <= 30) {
+      return _firestore
+          .collection('rides')
+          .where(FieldPath.documentId, whereIn: rideIds)
+          .snapshots()
+          .map((snap) {
+        final rides = <Ride>[];
+        for (final doc in snap.docs) {
+          final ride = Ride.fromSnapshot(doc);
+          if (ride != null) rides.add(ride);
+        }
+        // Sort by scheduledAt ascending.
+        rides.sort((a, b) {
+          final aTime = a.scheduledAt ?? DateTime(2100);
+          final bTime = b.scheduledAt ?? DateTime(2100);
+          return aTime.compareTo(bTime);
+        });
+        return rides;
+      });
+    }
+
+    // Fallback for 30+ IDs: use periodic fetch.
+    return Stream.periodic(const Duration(seconds: 15))
+        .asyncMap((_) => fetchRidesByIds(rideIds))
+        .map((rides) {
+      rides.sort((a, b) {
+        final aTime = a.scheduledAt ?? DateTime(2100);
+        final bTime = b.scheduledAt ?? DateTime(2100);
+        return aTime.compareTo(bTime);
+      });
+      return rides;
+    });
+  }
+
+  /// Remove a scheduled ride ID from both rider and customer docs.
+  /// Uses a batch for atomic consistency.
+  Future<void> removeScheduledRideId({
+    required String rideId,
+    required String riderId,
+    String? customerId,
+  }) async {
+    final batch = _firestore.batch();
+
+    batch.update(
+      _firestore.collection('riders').doc(riderId),
+      {'scheduledRideIds': FieldValue.arrayRemove([rideId])},
+    );
+
+    if (customerId != null && customerId.isNotEmpty) {
+      batch.update(
+        _firestore.collection('customers').doc(customerId),
+        {'scheduledRideIds': FieldValue.arrayRemove([rideId])},
+      );
+    }
+
+    await batch.commit();
+  }
+
+  /// Cancel a scheduled ride and clean up references.
+  Future<void> cancelScheduledRide({
+    required String rideId,
+    required String riderId,
+    String? customerId,
+  }) async {
+    final batch = _firestore.batch();
+
+    batch.update(
+      _firestore.collection('rides').doc(rideId),
+      {
+        'status': 'cancelled',
+        'canceledAt': FieldValue.serverTimestamp(),
+      },
+    );
+
+    batch.update(
+      _firestore.collection('riders').doc(riderId),
+      {'scheduledRideIds': FieldValue.arrayRemove([rideId])},
+    );
+
+    if (customerId != null && customerId.isNotEmpty) {
+      batch.update(
+        _firestore.collection('customers').doc(customerId),
+        {'scheduledRideIds': FieldValue.arrayRemove([rideId])},
+      );
+    }
+
+    await batch.commit();
+  }
+
+  /// Activate a scheduled ride when its time is due.
+  /// Changes ride status from 'scheduled' → 'requested' and assigns
+  /// the rider's currentRideId so the existing incoming ride flow kicks in.
+  Future<void> activateScheduledRide({
+    required String rideId,
+    required String riderId,
+  }) async {
+    final batch = _firestore.batch();
+
+    batch.update(
+      _firestore.collection('rides').doc(rideId),
+      {
+        'status': 'requested',
+        'activatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+
+    batch.update(
+      _firestore.collection('riders').doc(riderId),
+      {
+        'currentRideId': rideId,
+        'isAvailable': false,
+      },
+    );
+
+    await batch.commit();
+  }
+
   Future<void> acceptRide({required String rideId, required String riderId}) {
     return _firestore.collection('rides').doc(rideId).update({
       'status': 'accepted',
@@ -58,6 +207,7 @@ class RideRepository {
     await _firestore.collection('riders').doc(riderId).update({
       'isAvailable': true,
       'currentRideId': null,
+      'scheduledRideIds': FieldValue.arrayRemove([rideId]),
     });
   }
 
@@ -70,6 +220,7 @@ class RideRepository {
     await _firestore.collection('riders').doc(riderId).update({
       'isAvailable': true,
       'currentRideId': null,
+      'scheduledRideIds': FieldValue.arrayRemove([rideId]),
     });
   }
 
@@ -131,6 +282,7 @@ class RideRepository {
         'isAvailable': true,
         'currentRideId': null,
         'totalRides': FieldValue.increment(1),
+        'scheduledRideIds': FieldValue.arrayRemove([rideId]),
       });
     });
   }

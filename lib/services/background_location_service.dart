@@ -95,6 +95,7 @@ void _onStart(ServiceInstance service) async {
 
   String? riderId;
   Timer? locationTimer;
+  Timer? scheduledRideTimer;
   StreamSubscription<DocumentSnapshot>? riderSub;
   StreamSubscription<DocumentSnapshot>? rideSub;
   FirebaseFirestore? firestore;
@@ -143,6 +144,10 @@ void _onStart(ServiceInstance service) async {
       locationTimer?.cancel();
       locationTimer = null;
 
+      // ── Scheduled ride activation logic ──
+      scheduledRideTimer?.cancel();
+      scheduledRideTimer = null;
+
       if (isOnline) {
         // Update immediately, then every 10 seconds.
         _updateLocation(firestore!, riderId!);
@@ -150,6 +155,14 @@ void _onStart(ServiceInstance service) async {
             Timer.periodic(const Duration(seconds: 10), (_) {
           _updateLocation(firestore!, riderId!);
         });
+
+        // Check for due scheduled rides every 30 seconds.
+        _checkScheduledRides(firestore!, riderId!);
+        scheduledRideTimer =
+            Timer.periodic(const Duration(seconds: 30), (_) {
+          _checkScheduledRides(firestore!, riderId!);
+        });
+
         _setNotification(service, 'You are online – location tracking active');
       } else {
         _setNotification(service, 'You are offline');
@@ -161,10 +174,101 @@ void _onStart(ServiceInstance service) async {
   service.on('stopService').listen((_) {
     debugPrint('[BgLocation] stopService received');
     locationTimer?.cancel();
+    scheduledRideTimer?.cancel();
     riderSub?.cancel();
     rideSub?.cancel();
     service.stopSelf();
   });
+}
+
+/// Check if any of the rider's scheduled rides are due (within 5 minutes)
+/// and activate the earliest one.
+///
+/// Queries Firestore directly for rides assigned to this rider with
+/// status == 'scheduled', so it works regardless of whether
+/// scheduledRideIds is properly maintained.
+Future<void> _checkScheduledRides(
+    FirebaseFirestore firestore, String riderId) async {
+  try {
+    debugPrint('[BgScheduled] Checking scheduled rides for rider $riderId');
+
+    // Only activate if rider is available (no current ride).
+    final riderSnap =
+        await firestore.collection('riders').doc(riderId).get();
+    final riderData = riderSnap.data();
+    if (riderData == null) return;
+
+    final currentRideId = riderData['currentRideId'] as String?;
+    if (currentRideId != null) {
+      debugPrint('[BgScheduled] Rider already has active ride $currentRideId, skipping');
+      return;
+    }
+
+    // Query rides assigned to this rider that are still in 'scheduled' status.
+    final snap = await firestore
+        .collection('rides')
+        .where('riderId', isEqualTo: riderId)
+        .where('status', isEqualTo: 'scheduled')
+        .get();
+
+    debugPrint('[BgScheduled] Found ${snap.docs.length} scheduled ride(s)');
+
+    if (snap.docs.isEmpty) return;
+
+    final now = DateTime.now().toUtc();
+    final threshold = now.add(const Duration(minutes: 5));
+
+    // Find the earliest due ride.
+    String? earliestRideId;
+    DateTime? earliestTime;
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final scheduledAtRaw = data['scheduledAt'];
+      if (scheduledAtRaw is! Timestamp) continue;
+      final scheduledAt = scheduledAtRaw.toDate();
+
+      debugPrint('[BgScheduled] Ride ${doc.id}: scheduledAt=$scheduledAt, threshold=$threshold');
+
+      // Activate if scheduledAt is within 5 minutes from now (or already past).
+      if (scheduledAt.isBefore(threshold)) {
+        if (earliestTime == null || scheduledAt.isBefore(earliestTime)) {
+          earliestTime = scheduledAt;
+          earliestRideId = doc.id;
+        }
+      }
+    }
+
+    if (earliestRideId == null) {
+      debugPrint('[BgScheduled] No scheduled rides due yet');
+      return;
+    }
+
+    debugPrint(
+        '[BgScheduled] Activating scheduled ride $earliestRideId (due at $earliestTime)');
+
+    // Activate: set ride status to 'requested', assign currentRideId.
+    final batch = firestore.batch();
+    batch.update(
+      firestore.collection('rides').doc(earliestRideId),
+      {
+        'status': 'requested',
+        'activatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+    batch.update(
+      firestore.collection('riders').doc(riderId),
+      {
+        'currentRideId': earliestRideId,
+        'isAvailable': false,
+      },
+    );
+    await batch.commit();
+
+    debugPrint('[BgScheduled] Scheduled ride $earliestRideId activated successfully');
+  } catch (e) {
+    debugPrint('[BgScheduled] Error checking scheduled rides: $e');
+  }
 }
 
 Future<void> _updateLocation(
