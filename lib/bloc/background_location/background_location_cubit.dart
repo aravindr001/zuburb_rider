@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../services/background_location_service.dart';
+import '../../services/notification_service.dart';
 import 'background_location_state.dart';
 
 const _batteryChannel = MethodChannel('zuburb_rider/battery');
@@ -50,7 +51,14 @@ class BackgroundLocationCubit extends Cubit<BackgroundLocationState> {
         return;
       }
 
-      // 3. Request battery optimization exemption (Android only).
+      // 3. Request notification permission (Android 13+).
+      try {
+        await NotificationService.instance.requestNotificationPermission();
+      } catch (e) {
+        debugPrint('[BgLocationCubit] Notification permission request failed: $e');
+      }
+
+      // 4. Request battery optimization exemption (Android only).
       if (Platform.isAndroid) {
         try {
           final isDisabled = await _batteryChannel
@@ -59,6 +67,8 @@ class BackgroundLocationCubit extends Cubit<BackgroundLocationState> {
           if (isDisabled != true) {
             await _batteryChannel
                 .invokeMethod<bool>('requestDisableBatteryOptimization');
+            // Wait for the user to respond to the system dialog.
+            await Future.delayed(const Duration(seconds: 3));
           }
         } catch (e) {
           debugPrint('[BgLocationCubit] Battery optimization check failed: $e');
@@ -66,7 +76,7 @@ class BackgroundLocationCubit extends Cubit<BackgroundLocationState> {
         }
       }
 
-      // 4. Launch the foreground service.
+      // 5. Launch the foreground service.
       debugPrint('[BgLocationCubit] Starting background service...');
       await _service.start(riderId);
       debugPrint('[BgLocationCubit] Background service started.');

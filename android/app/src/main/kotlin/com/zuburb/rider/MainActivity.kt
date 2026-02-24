@@ -43,6 +43,7 @@ class MainActivity : FlutterActivity() {
 						try {
 							val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
 							intent.data = Uri.parse("package:$packageName")
+							intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 							startActivity(intent)
 							result.success(true)
 						} catch (e: Exception) {

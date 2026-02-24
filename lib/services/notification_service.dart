@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Android notification channel for ride request alerts.
 const String rideRequestChannelId = 'ride_request_channel';
@@ -39,6 +42,23 @@ class NotificationService {
     );
 
     debugPrint('[Notification] NotificationService initialised');
+  }
+
+  /// Request POST_NOTIFICATIONS permission on Android 13+.
+  /// On older Android or iOS this is a no-op.
+  Future<bool> requestNotificationPermission() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.notification.status;
+      debugPrint('[Notification] Current notification permission: $status');
+      if (status.isDenied) {
+        final result = await Permission.notification.request();
+        debugPrint('[Notification] Notification permission result: $result');
+        return result.isGranted;
+      }
+      return status.isGranted;
+    }
+    // iOS permission is handled by flutter_local_notifications init.
+    return true;
   }
 
   /// Show a ride-request notification. Tapping it simply brings the app
