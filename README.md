@@ -94,7 +94,7 @@ requested → accepted → arrived_pickup → picked_up → completed
 
 - Flutter SDK ^3.11.0
 - Firebase project with Auth (Phone) and Firestore enabled
-- Google Maps API key (Android & iOS)
+- Google Maps API key
 
 ### Setup
 
@@ -111,7 +111,6 @@ requested → accepted → arrived_pickup → picked_up → completed
 
 3. **Firebase configuration**
    - Place `google-services.json` in `android/app/` (this file is gitignored)
-   - Place `GoogleService-Info.plist` in `ios/Runner/`
    - Enable **Phone Authentication** in Firebase Console
    - Create the Firestore collections (`riders`, `rider_locations`, `rides`)
 
@@ -152,9 +151,7 @@ requested → accepted → arrived_pickup → picked_up → completed
 - `POST_NOTIFICATIONS` — Local notifications
 - `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` — Keep background service alive
 
-### iOS
-- Location When In Use / Always
-- Background Modes: Location Updates, Background Fetch
+
 
 ## Native Channels
 
