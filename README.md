@@ -824,41 +824,7 @@ cat .gitignore | grep "google-services.json"  # Should exist
 flutter analyze  # Must show 0 errors
 ```
 
-### Firestore Schema Changes
 
-**Important**: Coordinate changes with the customer app (`zuburb_ride`).
-
-1. **Plan schema change** — Document in project notes
-2. **Update both apps**:
-   - Models: `lib/models/`
-   - Repositories: `lib/repository/`
-   - BLoCs: Update state classes if needed
-3. **Update security rules** in Firebase Console
-4. **Test end-to-end**:
-   - Customer books ride → Rider receives → Accepts → Completes
-   - Test scheduled rides
-   - Test cancellation flows
-5. **Deploy Firestore indexes** if prompted
-6. **Update documentation** with schema changes
-
-### Release Checklist
-
-Before releasing to production:
-
-- [ ] Run `flutter analyze` — 0 errors
-- [ ] Run `flutter test` — all tests pass
-- [ ] Test on multiple physical devices
-- [ ] Test background location service overnight
-- [ ] Test with poor network conditions
-- [ ] Verify battery optimization is disabled
-- [ ] Test complete ride flow end-to-end
-- [ ] Test scheduled ride flow
-- [ ] Verify OTP verification works
-- [ ] Check Firebase quotas and billing
-- [ ] Review Firestore security rules
-- [ ] Restrict Google Maps API key by package name
-- [ ] Update version in `pubspec.yaml`
-- [ ] Tag release in version control
 
 ---
 
@@ -870,9 +836,8 @@ Private and proprietary. All rights reserved.
 
 ## 🔗 Related
 
-- [Zuburb Ride App](../zuburb_ride/) — Customer-facing app
-- [Monorepo Documentation](../CLAUDE.md) — Development standards and guidelines
-- [Design System](../.claude/skills/) — UI/UX design specifications
+- [Zuburb Ride App](https://github.com/aravindr001/zuburb_ride) — Customer-facing app
+
 
 ---
 
