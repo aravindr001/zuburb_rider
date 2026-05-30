@@ -18,13 +18,18 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, state) {
         return switch (state) {
           AuthSessionUnknown() => const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              backgroundColor: Color(0xFF0A0A0F),
+              body: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E5C3)),
+                ),
+              ),
             ),
           AuthSessionAuthenticated(:final user) => _ProfileGate(
               riderId: user.uid,
               phoneNumber: user.phoneNumber,
             ),
-          AuthSessionUnauthenticated() => LoginScreen(),
+          AuthSessionUnauthenticated() => const LoginScreen(),
         };
       },
     );
@@ -47,7 +52,12 @@ class _ProfileGate extends StatelessWidget {
         // Still loading the first snapshot.
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            backgroundColor: Color(0xFF0A0A0F),
+            body: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E5C3)),
+              ),
+            ),
           );
         }
 
