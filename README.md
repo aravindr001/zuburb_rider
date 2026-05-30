@@ -841,10 +841,3 @@ Private and proprietary. All rights reserved.
 
 ---
 
-<div align="center">
-
-**Built with Flutter and Firebase**
-
-*Zero Cloud Functions. Zero Backend. Pure Client-Side Power.*
-
-</div>
